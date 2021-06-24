@@ -1,5 +1,8 @@
 require("dotenv").config();
-import request from "request";
+const request = require("request");
+const giphy = require('giphy-api')('6IZu9cbApxn3ZtzYlxik6DvQaXYDJjfq');
+// configure your fetch: fetch 10 gifs at a time as the user scrolls (offset is handled by the grid
+
 
 const MY_VERIFY_TOKEN = process.env.MY_VERIFY_TOKEN;
 const PAGE_ACCESS_TOKEN = process.env.PAGE_ACCESS_TOKEN;
@@ -35,7 +38,7 @@ let getWebhook = (req, res) => {
     }
 };
 
-let postWebhook = (req, res) => {
+let postWebhook = async (req, res) => {
     // Parse the request body from the POST
     let body = req.body;
 
@@ -43,21 +46,21 @@ let postWebhook = (req, res) => {
     if (body.object === 'page') {
 
         // Iterate over each entry - there may be multiple if batched
-        body.entry.forEach(function(entry) {
+        body.entry.forEach(async function(entry) {
 
             // Gets the body of the webhook event
             let webhook_event = entry.messaging[0];
-            console.log(webhook_event);
+            // console.log(webhook_event);
 
 
             // Get the sender PSID
             let sender_psid = webhook_event.sender.id;
-            console.log('Sender PSID: ' + sender_psid);
+            // console.log('Sender PSID: ' + sender_psid);
 
             // Check if the event is a message or postback and
-            // pass the event to the appropriate handler function
+            // pass the event to the appropriate handler functio
             if (webhook_event.message) {
-                handleMessage(sender_psid, webhook_event.message);
+                await handleMessage(sender_psid, webhook_event.message);
             } else if (webhook_event.postback) {
                 handlePostback(sender_psid, webhook_event.postback);
             }
@@ -75,16 +78,36 @@ let postWebhook = (req, res) => {
 };
 
 // Handles messages events
-let handleMessage = (sender_psid, received_message) => {
+let handleMessage = async (sender_psid, received_message) => {
     let response;
 
     // Checks if the message contains text
+    console.log(`text`, received_message.text)
     if (received_message.text) {
-        // Create the payload for a basic text message, which
-        // will be added to the body of our request to the Send API
+
+        const res = await giphy.search({
+            q: received_message.text,
+            rating: 'g',
+            limit: 1
+        })
+        console.log('AAAAAAAAAAAAAAAAAAAAAAAAAAA');
+        
         response = {
-            "text": `You sent the message: "${received_message.text}". Now send me an attachment!`
+            "attachment": {
+                "type": "template",
+                "payload": {
+                    "template_type": "generic",
+                    "elements": [{
+                        "title": "Của bạn nè",
+                        "subtitle": "Đẹp không nà",
+                        "image_url": res.data[0].url
+                    }]
+                }
+            }
         }
+        
+        
+        
     } else if (received_message.attachments) {
         // Get the URL of the message attachment
         let attachment_url = received_message.attachments[0].payload.url;
@@ -113,10 +136,33 @@ let handleMessage = (sender_psid, received_message) => {
                 }
             }
         }
+    } else {
+        const res = await giphy.search({
+            q: 'kiss',
+            rating: 'g',
+            limit: 1
+        })
+        console.log('AAAAAAAAAAAAAAAAAAAAAAAAAAA');
+        
+        response = {
+            "attachment": {
+                "type": "template",
+                "payload": {
+                    "template_type": "generic",
+                    "elements": [{
+                        "title": "Của bạn nè",
+                        "subtitle": "Đẹp không nà",
+                        "image_url": 'https://res.cloudinary.com/dfzxukhfp/image/upload/v1620199261/iStock_995305604_x6dws1.jpg'
+                    }]
+                }
+            }
+        }
     }
 
     // Send the response message
-    callSendAPI(sender_psid, response);
+    await callSendAPI(sender_psid, response);
+    console.log('BBBBBBBBBBBBBBBBBBBBBBBBBBBBBBbb');
+    return Promise.resolve(true)
 };
 
 // Handles messaging_postbacks events
@@ -137,7 +183,7 @@ let handlePostback = (sender_psid, received_postback) => {
 };
 
 // Sends response messages via the Send API
-let callSendAPI = (sender_psid, response) => {
+let callSendAPI = async (sender_psid, response) => {
     // Construct the message body
     let request_body = {
         "recipient": {
@@ -155,8 +201,10 @@ let callSendAPI = (sender_psid, response) => {
     }, (err, res, body) => {
         if (!err) {
             console.log('message sent!')
+            return Promise.resolve(true)
         } else {
             console.error("Unable to send message:" + err);
+            return Promise.resolve(false)
         }
     });
 };
